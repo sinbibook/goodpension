@@ -1,7 +1,7 @@
 {
   "metadata": {
-    "version": "1.0.0",
-    "generatedAt": "2026-09-28T02:58:37.347261114Z",
+    "version": "1.1.0",
+    "generatedAt": "2026-09-28T03:15:56.286170601Z",
     "templateType": "trip_a",
     "propertyId": "ce693a4b-4048-4daa-9603-18156fd61d03",
     "homepageId": "01a0e5ed-082c-7cbe-81f1-483e230c8f01"
@@ -27,7 +27,7 @@
     "province": "도/시",
     "city": "시/군/구",
     "domain": "goodpension.kr",
-    "realtimeBookingId": "",
+    "realtimeBookingId": "https://booking.naver.com/booking/3/bizes/297777",
     "ybsId": "64620",
     "tripPropertyId": "1595",
     "partnerType": "distributor_a",
