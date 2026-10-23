@@ -11,6 +11,7 @@ const browserGlobals = {
   clearTimeout: 'readonly',
   setInterval: 'readonly',
   clearInterval: 'readonly',
+  URL: 'readonly',
   URLSearchParams: 'readonly',
   location: 'readonly',
   getComputedStyle: 'readonly',
@@ -35,6 +36,7 @@ const projectGlobals = {
   DirectionsMapper: 'readonly',
   NearbyAttractionsMapper: 'readonly',
   LayoutMapMapper: 'readonly',
+  LandingMapper: 'readonly',
   PopupManager: 'writable',
 };
 
