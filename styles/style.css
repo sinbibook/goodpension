@@ -294,6 +294,26 @@
 .header .btn_hd_res:hover {
   text-decoration: underline;
 }
+/* 네이버 버튼 (원본 .btn_hd_res.naver — 값 그대로) */
+.header .naver a,
+.header .insta a {
+  display: inline-block;
+  background: none;
+  line-height: 2.125;
+  padding: 0 0.5em;
+}
+/* 원본은 width:18% 라 N 로고(200px)를 36px 로 그리지만 a 는 200px 폭을 그대로 차지한다(보이지 않는 여백).
+   그 여백 때문에 네이버+인스타가 함께 뜨면 1440px 에서도 예약하기가 다음 줄로 밀린다(원본 솔비치도 동일 증상).
+   보이는 크기는 같은 36px 로 고정하고 여백만 없앤다. */
+.header .naver a img {
+  width: 36px;
+  height: auto;
+}
+/* 인스타그램 버튼 (원본 A 에는 없음) — 네이버 N 로고와 같은 36px 높이 (122×126 비율 유지). */
+.header .insta a img {
+  width: auto;
+  height: 36px;
+}
 .header .btn_menu {
   display: inline-block;
   height: 23px;
@@ -536,6 +556,18 @@
 @media only screen and (max-width: 479px) {
   .aside {
     width: calc(100% - 50px);
+  }
+  /* 네이버·인스타 아이콘이 붙으면 하단 아이콘이 최대 5개가 된다.
+     원본 간격(20px)이면 375px 폭에서 줄바꿈되므로 간격을 줄이고,
+     더 좁은 화면에서 줄바꿈될 때도 위아래가 붙지 않고 가운데 정렬되도록 flex + gap 으로 둔다. */
+  .aside_btm {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 10px;
+  }
+  .aside_btm li + li {
+    margin-left: 0;
   }
 }
 
@@ -1022,18 +1054,24 @@
   position: relative;
   overflow: hidden;
 }
+/* 영문명은 이미지 왼쪽 빈 자리에 오른쪽 정렬로 붙인다.
+   이미지 시작점 = 50% - 700px(pic_box 반폭) + 380px(padding-left) = 50% - 320px,
+   여기서 40px 띄워 right: 50% + 360px. left: 390px 고정이면 화면 폭·이름 길이에 따라
+   이미지 밑으로 파고든다. 이름이 남은 폭보다 길면 위로 줄바꿈된다(bottom 기준).
+   1650px 이하에서는 숨긴다. */
 .main_pic .pic_title {
   position: absolute;
   margin: 0 auto;
-  left: 390px;
+  right: calc(50% + 360px);
   bottom: 100%;
+  max-width: calc(50% - 380px);
   font-family: var(--font-en-main);
   font-size: 80px;
   line-height: 0.8;
   letter-spacing: -5px;
   opacity: 0.1;
   font-weight: 100;
-  text-align: left;
+  text-align: right;
   z-index: 5;
   color: #333;
 }
@@ -2012,9 +2050,17 @@
   margin: 230px auto 0;
   overflow: hidden;
   position: relative;
+  /* 이미지 3장과 인삿말을 같은 칸에 겹쳐 놓는다 (위치는 예전 absolute 우측 상단 그대로).
+     글이 길면 칸이 늘어나고, 이미지는 칸 바닥에 붙어 아래로 밀린다 — 글이 잘리거나 이미지를 덮지 않는다. */
+  display: grid;
+}
+.sub_about .about_top > .img_box,
+.sub_about .about_top > .about_txt_box {
+  grid-area: 1 / 1;
 }
 .sub_about .about_top .img_box {
   font-size: 0;
+  align-self: end;
 }
 .sub_about .about_top .img_box > div {
   display: inline-block;
@@ -2030,10 +2076,13 @@
   height: 450px;
 }
 .sub_about .about_top .about_txt_box {
-  position: absolute;
-  right: 0;
-  top: 0;
+  justify-self: end;
+  align-self: start;
+  /* 폭을 묶어 긴 줄이 img01(30%) 위로 넘어오지 않게 줄바꿈한다.
+     좁은 화면에서 30px 제목이 쪼개지지 않게 420px 까지는 넓히되, img01 오른쪽 + 40px 를 넘지 않는다 */
+  max-width: max(30%, min(420px, calc(70% - 40px)));
   text-align: right;
+  overflow-wrap: break-word;
 }
 .sub_about .about_img {
   margin-top: 100px;
@@ -2125,6 +2174,11 @@
 .sub1_2.sub_about .about_txt_box {
   margin-bottom: 0;
 }
+/* 글 아래로 img02·03(220px) + 간격 40px 자리를 비워 둔다. 글이 길어지면 이 만큼 칸이 늘어 이미지가 밀려 내려간다.
+   (위 .sub1_2 규칙과 명시도가 같아 뒤에 둔다) */
+.sub_about .about_top .about_txt_box {
+  margin: 0 0 260px;
+}
 /* main.html 은 원본 about.html(sub1_1) + view.html(sub1_2) 를 병합했다.
    외경 갤러리(.main_landscape)는 원래 sub1_2 전용이라 sub1_1 에 여백 규칙이 없다. */
 .sub_about .main_landscape {
@@ -2139,9 +2193,6 @@
 }
 
 @media only screen and (max-width: 1450px) {
-  .sub_about .about_top .about_txt_box {
-    right: 30px;
-  }
   .sub_about .about_txt_box strong {
     font-size: 28px;
   }
@@ -2187,9 +2238,6 @@
   .sub_about .about_top {
     margin: 150px auto 0;
   }
-  .sub_about .about_top .about_txt_box {
-    right: 20px;
-  }
   .sub_about .about_top .about_txt_box strong {
     font-size: 25px;
   }
@@ -2231,7 +2279,10 @@
     height: 200px;
   }
   .sub_about .about_top .about_txt_box {
-    position: static;
+    grid-area: 2 / 1;
+    justify-self: stretch;
+    max-width: none;
+    margin: 0;
   }
   .sub1_1.sub_about .about_top .about_txt_box {
     margin: 0;
@@ -2846,4 +2897,48 @@
    예약하기 자체는 파트너 타입과 무관하게 `.for_m` 미디어쿼리로만 갈린다. */
 [data-consult='off'] .ft_btn_reserve.on {
   bottom: 6px;
+}
+
+/* ── 푸터 농어촌민박사업자 이미지 (템플릿 확장) ─────────────────────
+   customFields.footer.ruralStayMark 가 있을 때만 매퍼가 노출한다(마크업 기본 숨김).
+   - 농어촌민박사업자 이미지: 푸터 맨 위(전화번호 위) 가운데. 세로형(마크 + 신고번호 박스)이라
+     폭을 고정(PC 180px / 모바일 160px)하고 높이는 비율에 맡긴다. 신고번호가 읽히도록 모바일에서도 160px 아래로 줄이지 않는다.
+   - 로고: 주소 아래. 로고가 있을 때만 보인다. */
+.footer_wrap .footer .ft_rural_stay_mark_wrap {
+  display: flex;
+  justify-content: center;
+  padding: 0 0 16px;
+}
+.footer_wrap .footer .ft_rural_stay_mark {
+  display: block;
+  width: 180px;
+  height: auto;
+  max-width: 100%;
+  object-fit: contain;
+}
+@media only screen and (max-width: 767px) {
+  .footer_wrap .footer .ft_rural_stay_mark {
+    width: 160px;
+  }
+}
+.footer_wrap .footer .ft_logo_wrap {
+  display: flex;
+  justify-content: center;
+  padding: 16px 0 4px;
+}
+.footer_wrap .footer .ft_logo {
+  display: block;
+  width: auto;
+  height: auto;
+  max-width: 160px;
+  max-height: 56px;
+  object-fit: contain;
+}
+@media only screen and (max-width: 767px) {
+  .footer_wrap .footer .ft_logo_wrap {
+    justify-content: flex-start;
+  }
+  .footer_wrap .footer .ft_logo {
+    max-height: 44px;
+  }
 }

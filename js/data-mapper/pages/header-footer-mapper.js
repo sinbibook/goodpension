@@ -37,6 +37,7 @@
     this.mapBookingLinks();
     this.mapYbs();
     this.mapConsult();
+    this.mapSocialLinks();
     this.mapRoomMenu();
     this.mapSpecialMenu();
     this.mapPageToggles();
@@ -170,6 +171,38 @@
     });
   };
 
+  // MAPPER: homepage.socialLinks.{facebook|instagram|blog|youtube} → [data-homepage-socialLinks-{platform}]
+  // 값이 있으면 href 를 넣고 노출, 없으면(null·빈 문자열·키 없음) 숨김.
+  // 래퍼([data-social-wrap] — 헤더 .btn_hd_res.naver/.insta / aside li)가 있으면 래퍼째 숨겨 빈 칸·간격이 남지 않게 한다.
+  // A 템플릿 마크업은 네이버(blog)·인스타그램(instagram) 두 가지이고,
+  // facebook / youtube 는 매칭 요소 0개라 아무 일도 없다.
+  // 래퍼는 마크업에서 style="display: none" 으로 시작한다(매핑 전 깜빡임 방지).
+  // 노출은 inline display 를 지워서 CSS(.header.on .btn_hd_res 등)에 맡긴다.
+  HeaderFooterMapper.prototype.SOCIAL_PLATFORMS = ['facebook', 'instagram', 'blog', 'youtube'];
+
+  HeaderFooterMapper.prototype.mapSocialLinks = function () {
+    var links = this.getHomepage().socialLinks || {};
+    this.SOCIAL_PLATFORMS.forEach(function (platform) {
+      var url = consultText(links[platform]);
+      document
+        .querySelectorAll('[data-homepage-socialLinks-' + platform + ']')
+        .forEach(function (el) {
+          var host = el.closest('[data-social-wrap]') || el;
+          if (!url) {
+            host.style.display = 'none';
+            return;
+          }
+          host.style.display = '';
+          var target = el.tagName === 'A' ? el : el.querySelector('a');
+          if (target) {
+            target.href = url;
+            target.setAttribute('target', '_blank');
+            target.setAttribute('rel', 'noopener');
+          }
+        });
+    });
+  };
+
   // MAPPER: roomtypes[].name → [data-rooms-submenu] (미리보기 li 뒤에 동적 생성, PC + 모바일 aside)
   HeaderFooterMapper.prototype.mapRoomMenu = function () {
     var self = this;
@@ -212,12 +245,23 @@
   };
 
   // MAPPER: pages.layoutMap / nearbyAttractions enabled → 메뉴 표시/숨김
+  //
+  // 미리보기가 꺼지면 "미리보기" li 를 숨기고, 대메뉴 ROOMS([data-rooms-link])는
+  // 첫 번째 객실 상세로 보낸다 — 그대로 두면 layout-map.html 이 404 로 튕긴다.
+  // 판정은 layout-map.html 의 404 기준과 같은 isLayoutMapEnabled() 를 쓴다.
   HeaderFooterMapper.prototype.mapPageToggles = function () {
-    var layoutMapEnabled = this.isPageEnabled('layoutMap');
+    var layoutMapEnabled = this.isLayoutMapEnabled();
     document.querySelectorAll('[data-menu-id="layout-map"]').forEach(function (el) {
       var li = el.closest('li') || el;
       li.style.display = layoutMapEnabled ? '' : 'none';
     });
+
+    var roomsLink = this.getRoomsEntryLink();
+    if (roomsLink) {
+      document.querySelectorAll('[data-rooms-link]').forEach(function (el) {
+        el.setAttribute('href', roomsLink);
+      });
+    }
 
     var nearbyEnabled = this.isPageEnabled('nearbyAttractions');
     document.querySelectorAll('[data-travel-menu]').forEach(function (el) {
@@ -281,8 +325,43 @@
     });
   };
 
+  // MAPPER: customFields.footer.ruralStayMark → [data-footer-rural-stay-mark] (푸터 맨 위, 전화번호 위)
+  //         로고 → [data-footer-logo] (주소 아래)
+  // 농어촌민박사업자 이미지가 있을 때만 두 영역을 노출한다. 로고는 로고가 있을 때만.
+  // 없으면 모두 숨겨 기존 푸터와 같다. 프리뷰는 같은 페이지에서 다시 매핑하므로 매번 표시 상태를 되돌린다.
+  HeaderFooterMapper.prototype.mapFooterMarks = function () {
+    var footer = this.getCustomFields().footer || {};
+    var mark = footer.ruralStayMark;
+    var markUrl = mark && mark.url ? String(mark.url) : '';
+    var logoUrl = this.getLogo();
+
+    document.querySelectorAll('[data-footer-rural-stay-mark-wrap]').forEach(function (wrap) {
+      wrap.style.display = markUrl ? '' : 'none';
+    });
+    document.querySelectorAll('[data-footer-logo-wrap]').forEach(function (wrap) {
+      wrap.style.display = markUrl && logoUrl ? '' : 'none';
+    });
+    document.querySelectorAll('[data-footer-rural-stay-mark]').forEach(function (img) {
+      if (!markUrl) {
+        img.removeAttribute('src');
+        return;
+      }
+      img.src = markUrl;
+      img.alt = (mark.description && String(mark.description).trim()) || '농어촌민박사업자';
+    });
+    document.querySelectorAll('[data-footer-logo]').forEach(function (img) {
+      if (!markUrl || !logoUrl) {
+        img.removeAttribute('src');
+        return;
+      }
+      img.src = logoUrl;
+      img.alt = this.getPropertyName();
+    }, this);
+  };
+
   HeaderFooterMapper.prototype.mapFooter = function () {
     this.mapCopyright();
+    this.mapFooterMarks();
     var prop = this.getProperty();
     var biz = prop.businessInfo || {};
     var phones = this.toPhoneList(prop.contactPhone);

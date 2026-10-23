@@ -22,7 +22,8 @@
           </ul>
         </li>
         <li class="depth1">
-          <a href="./layout-map.html" class="depth1_a">ROOMS</a>
+          <!-- data-* 속성 : data-rooms-link (layoutMap 켜짐 → layout-map.html / 꺼짐 → 첫 객실 상세) -->
+          <a href="./layout-map.html" class="depth1_a" data-rooms-link>ROOMS</a>
           <!-- data-* 속성 : data-rooms-submenu (ROOMS 서브메뉴 컨테이너) -->
           <ul class="depth_box" data-rooms-submenu>
             <!-- data-* 속성 : data-menu-id="layout-map" (layoutMap enabled=false 면 숨김) -->
@@ -65,6 +66,22 @@
       </ul>
     </div>
 
+    <!-- 네이버 버튼 (원본 .btn_hd_res.naver — 예약하기 버튼 앞)
+         data-* 속성 : data-homepage-socialLinks-blog (homepage.socialLinks.blog, 네이버 플레이스 주소)
+         값이 없으면 래퍼(data-social-wrap)째 숨김. 매핑 전 깜빡임 방지로 기본은 숨김 상태다. -->
+    <div class="btn_hd_res naver" data-social-wrap style="display: none">
+      <a href="#!" target="_blank" rel="noopener" data-homepage-socialLinks-blog>
+        <img src="images/n_logo.png" alt="네이버" />
+      </a>
+    </div>
+    <!-- 인스타그램 버튼 (원본 A 에는 없음 → 네이버 버튼과 같은 로고 이미지 방식·크기, 네이버 바로 뒤)
+         data-* 속성 : data-homepage-socialLinks-instagram (homepage.socialLinks.instagram)
+         값이 없으면 래퍼(data-social-wrap)째 숨김. 기본은 숨김 상태다. -->
+    <div class="btn_hd_res insta" data-social-wrap style="display: none">
+      <a href="#!" target="_blank" rel="noopener" data-homepage-socialLinks-instagram>
+        <img src="images/insta_logo.png" alt="인스타그램" />
+      </a>
+    </div>
     <div class="btn_hd_res">
       <!-- data-* 속성 : data-booking-link -->
       <a href="#!" target="_blank" data-booking-link>예약하기</a>
@@ -121,6 +138,33 @@
         <ul class="aside_btm">
           <li class="aside_ico01">
             <a href="./index.html" style="background-image: url('images/i3.png')">메인</a>
+          </li>
+          <!-- 네이버 (원본 aside_btm 메인·예약 사이 흰색 N 아이콘)
+               data-* 속성 : data-homepage-socialLinks-blog (값 없으면 li째 숨김, 기본 숨김) -->
+          <li class="aside_ico01" data-social-wrap style="display: none">
+            <a
+              href="#!"
+              target="_blank"
+              rel="noopener"
+              style="background-image: url('images/n_w_logo.png')"
+              data-homepage-socialLinks-blog
+            >
+              네이버
+            </a>
+          </li>
+          <!-- 인스타그램 (원본 A 에는 없음 → 네이버 아이콘과 같은 방식, 네이버 바로 뒤)
+               다른 aside 아이콘처럼 흰색 단색(insta_w_logo.png). 헤더 버튼은 컬러 로고(insta_logo.png) 그대로.
+               data-* 속성 : data-homepage-socialLinks-instagram (값 없으면 li째 숨김, 기본 숨김) -->
+          <li class="aside_ico01" data-social-wrap style="display: none">
+            <a
+              href="#!"
+              target="_blank"
+              rel="noopener"
+              style="background-image: url('images/insta_w_logo.png')"
+              data-homepage-socialLinks-instagram
+            >
+              인스타그램
+            </a>
           </li>
           <li class="aside_ico02">
             <!-- data-* 속성 : data-booking-link -->

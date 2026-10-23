@@ -1,6 +1,11 @@
 {
   "tagname-lowercase": true,
-  "attr-lowercase": true,
+  "attr-lowercase": [
+    "data-homepage-socialLinks-facebook",
+    "data-homepage-socialLinks-instagram",
+    "data-homepage-socialLinks-blog",
+    "data-homepage-socialLinks-youtube"
+  ],
   "attr-value-double-quotes": true,
   "doctype-first": false,
   "tag-pair": true,

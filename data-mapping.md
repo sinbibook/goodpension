@@ -6,7 +6,9 @@
 두 사이트는 **동일 템플릿**이며 `style.css` 차이가 75줄(대부분 `font-family`)뿐이다.
 사이트별로 갈리던 값은 전부 `styles/theme.css` 변수로 뽑아냈다.
 
-> 작업 진행 상황: 전 페이지 매핑 완료 (`index` / `main` / `layout-map` / `room` / `special` / `reservation` / `directions` / `nearby-attractions` / `404`).
+> 작업 진행 상황: 전 페이지 매핑 완료 (`index` / `main` / `layout-map` / `room` / `special` / `reservation` / `directions` / `nearby-attractions` / `landing` / `404`).
+>
+> ⚠️ **`landing` 은 아직 운영 미배포 상태다.** 백오피스에 랜딩페이지 편집 기능이 붙어야 `pages.landing` 데이터가 실제로 내려온다. 백엔드와 동시 배포 전까지는 로컬/프리뷰 테스트 용도로만 존재한다.
 
 ---
 
@@ -20,6 +22,26 @@
 - 페이지 간 링크는 상대경로(`./xxx.html`)를 쓴다. 절대경로는 GitHub Pages 하위 경로 배포에서 깨진다.
 - **렌더 게이트**: 각 HTML `<head>` 에 `html.tpl-loading body{opacity:0}` + `window.__tplReveal` 인라인 스크립트를 둔다. 매핑 완료 시(`BaseDataMapper.initialize/updateData`, `preview-handler.renderTemplate`) 해제해 placeholder 깜빡임(FOUC)을 막는다.
 - **초기화 주체는 `preview-handler`다.** 각 매퍼의 `DOMContentLoaded` 핸들러는 `if (window.previewHandler) return;` 로 빠진다. `preview-handler.js` 가 항상 `window.previewHandler` 를 만들므로 standalone/preview 양쪽을 그쪽이 구동한다.
+
+### ⚠️ 랜딩 게이트 — `index.html` 진입을 가로챈다
+
+`pages.landing.sections[0].enabled === true` 면 `index.html` 진입 자체를 `landing.html` 로 되돌리는 **루트 가드**가 있다 (`index-mapper.js`). 다른 옵션 페이지(`layoutMap`/`nearbyAttractions`)는 "비활성 시 404" 방향이라면, 랜딩은 반대로 "**활성 시 index 진입을 가로챈다**"는 점이 다르다.
+
+```
+IndexMapper.mapPage()  (+ 스크립트 로드 직후 earlyLandingGate 도 같은 판단)
+  → maybeRedirectToLanding() → shouldEnterLanding()
+      - window.top !== window.self (어드민 프리뷰 iframe) → 가드 skip
+      - pages.landing.sections[0].enabled !== true → 가드 skip
+      - document.referrer 가 같은 origin → 가드 skip (헤더 로고·메뉴, 랜딩의 자기 자신 카드)
+      - document.referrer 호스트가 about[].domain 중 하나 → 가드 skip (연결 숙소 랜딩에서 카드로 넘어옴)
+      - 그 외 (주소 직접 입력·즐겨찾기·검색/외부 링크) → location.replace('landing.html')
+```
+
+쿼리 파라미터 없이 **referrer** 로 "랜딩을 이미 거쳤는지" 를 가른다. 그래서 헤더 로고/aside `메인` 링크는 원래대로 `./index.html`, 랜딩 카드도 `./index.html` / `{domain}/` 로 보낸다.
+
+- 크로스 도메인 referrer 는 브라우저 기본 정책(`strict-origin-when-cross-origin`)상 origin 만 오므로 호스트로만 비교한다 (`www.` 유무 무시).
+- 연결 숙소 B 의 랜딩 `about[]` 에 A 의 도메인이 없으면, A 랜딩 → B 카드 클릭 시 B 의 랜딩이 한 번 더 뜬다.
+- https → http 로 넘어가면 브라우저가 referrer 를 보내지 않아 랜딩이 다시 뜬다 (연결 숙소 도메인은 https 전제).
 
 ### ⚠️ 부대시설 페이지 파일명 — `facility.html`
 
@@ -281,18 +303,37 @@ property.images[] 중 category === 'property_exterior'  (평탄형)
 
 ### 매핑
 
-| data-\* 속성                | 요소                                                | JSON 경로                                                                             |
-| --------------------------- | --------------------------------------------------- | ------------------------------------------------------------------------------------- |
-| `data-property-name-en`     | `.logo a b`, `.logo2 a`                             | `getPropertyNameEn()`                                                                 |
-| `data-property-name`        | `.logo a span`                                      | `property.name`                                                                       |
-| `data-rooms-submenu`        | ROOMS `.depth_box` + aside `.depth_list`            | `customFields.roomtypes[]` → `./room.html?room_id={id}` (동적 생성, `미리보기` li 뒤) |
-| `data-special-submenu`      | SPECIAL `.depth_box` + aside                        | `property.facilities[]` → `./facility.html?id={id}` (컨테이너 비우고 동적 생성)       |
-| `data-booking-link`         | RESERVE / 예약하기 / `.btn_hd_res` / `.aside_ico02` | `property.realtimeBookingId` (`getBookingUrl()`, href 직접 주입)                      |
-| `data-travel-menu`          | TRAVEL `<li>` (PC + aside)                          | `pages.nearbyAttractions.sections[0].enabled === false` → 숨김                        |
-| `data-menu-id="layout-map"` | ROOMS `미리보기` li                                 | `pages.layoutMap.sections[0].enabled === false` → 숨김                                |
-| `data-footer-phone-link`    | `.aside_ico03` (전화 아이콘)                        | `property.contactPhone[0]` → `tel:` (번호 텍스트 슬롯이 없으므로 href 만)             |
+| data-\* 속성                          | 요소                                                                           | JSON 경로                                                                                                       |
+| ------------------------------------- | ------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------- |
+| `data-property-name-en`               | `.logo a b`, `.logo2 a`                                                        | `getPropertyNameEn()`                                                                                           |
+| `data-property-name`                  | `.logo a span`                                                                 | `property.name`                                                                                                 |
+| `data-rooms-submenu`                  | ROOMS `.depth_box` + aside `.depth_list`                                       | `customFields.roomtypes[]` → `./room.html?room_id={id}` (동적 생성, `미리보기` li 뒤)                           |
+| `data-special-submenu`                | SPECIAL `.depth_box` + aside                                                   | `property.facilities[]` → `./facility.html?id={id}` (컨테이너 비우고 동적 생성)                                 |
+| `data-booking-link`                   | RESERVE / 예약하기 / `.btn_hd_res` / `.aside_ico02`                            | `property.realtimeBookingId` (`getBookingUrl()`, href 직접 주입)                                                |
+| `data-travel-menu`                    | TRAVEL `<li>` (PC + aside)                                                     | `pages.nearbyAttractions.sections[0].enabled === false` → 숨김                                                  |
+| `data-menu-id="layout-map"`           | ROOMS `미리보기` li                                                            | `pages.layoutMap.sections[0].enabled === false` (또는 섹션 없음) → 숨김                                         |
+| `data-rooms-link`                     | 대메뉴 ROOMS `depth1_a`                                                        | `pages.layoutMap.sections[0].enabled` — 켜짐 → `layout-map.html` / 꺼짐 → 첫 객실 상세 (`getRoomsEntryLink()`)  |
+| `data-footer-phone-link`              | `.aside_ico03` (전화 아이콘)                                                   | `property.contactPhone[0]` → `tel:` (번호 텍스트 슬롯이 없으므로 href 만)                                       |
+| `data-homepage-socialLinks-blog`      | `.btn_hd_res.naver` (네이버 N, 예약하기 앞) + aside_btm 네이버 아이콘(메인 뒤) | `homepage.socialLinks.blog` (네이버 플레이스 주소) — 값 있으면 href + 노출, 없으면 `[data-social-wrap]` 째 숨김 |
+| `data-homepage-socialLinks-instagram` | `.btn_hd_res.insta` (네이버 뒤) + aside_btm 인스타 아이콘(네이버 뒤)           | `homepage.socialLinks.instagram` — 값 있으면 href + 노출, 없으면 `[data-social-wrap]` 째 숨김                   |
 
 > 이름 없는 객실타입/시설은 빈 메뉴 항목(여백)이 되므로 건너뛴다.
+
+### 소셜 링크 — `mapSocialLinks()`
+
+`homepage.socialLinks = { facebook, instagram, blog, youtube }` 4종을 `[data-homepage-socialLinks-{platform}]` 에 매핑한다 (`template-*` 와 같은 규약).
+마크업은 **네이버(`blog`) · 인스타그램(`instagram`)** 두 가지이고, facebook / youtube 는 매칭 요소가 없다.
+
+| 버튼   | 헤더(PC, 스크롤 후)                               | aside 하단 아이콘               | 근거                                                   |
+| ------ | ------------------------------------------------- | ------------------------------- | ------------------------------------------------------ |
+| 네이버 | `.btn_hd_res.naver` — 예약하기 앞, `n_logo.png`   | 메인 뒤, `n_w_logo.png`(흰색 N) | 원본(솔비치·동막스파·오션11) 마크업·CSS 그대로         |
+| 인스타 | `.btn_hd_res.insta` — 네이버 뒤, `insta_logo.png` | 네이버 뒤, `insta_logo.png`     | 원본 A 에는 없음 → 네이버 버튼과 같은 방식·크기로 추가 |
+
+- 래퍼(`[data-social-wrap]`)는 마크업에서 `style="display: none"` 으로 시작한다 → 매핑 전 깜빡임 없음. 값이 있으면 inline display 를 지워 CSS 에 맡긴다.
+- PC 헤더 버튼은 원본과 같이 **스크롤 후(`.header.on`)에만** 보이고 860px 이하에서는 숨는다. 모바일은 aside 하단 아이콘으로 노출된다.
+- 크기: 네이버는 원본 `width:18%`(200px → 36px), 인스타는 같은 36px 높이로 고정. 861~1023px 에서는 둘이 함께 떠도 예약하기가 줄바꿈되지 않도록 네이버 이미지를 `width:36px` 로 고정한다(보이는 크기 동일).
+- aside 하단 아이콘이 최대 5개가 되므로 479px 이하에서는 간격 10px(flex + gap)로 줄이고, 더 좁으면 가운데 정렬로 줄바꿈된다.
+- 어드민 프리뷰 `section_update` 의 `section === 'socialLinks'` 는 `pages[page].sections[0]` 이 아니라 `homepage.socialLinks` 에 반영하고 `mapSocialLinks()` 만 다시 돌린다.
 
 ---
 
@@ -316,6 +357,86 @@ property.images[] 중 category === 'property_exterior'  (평탄형)
 
 ---
 
+## landing.html (선택 기능 — 여러 숙소 게이트)
+
+> 헤더/푸터가 없는 별도 페이지다. 아직 숙소를 고르기 전 화면이라 특정 숙소의 내비게이션(ABOUT/ROOMS/SPECIAL 등)을 보여줄 수 없다. himongpoolvilla.kr(3카드) / haimom(2카드) 형태의 "여러 숙소 게이트" 참고.
+> `pages.landing.sections[0].enabled === true` 일 때 `index.html` 진입이 이 페이지로 리다이렉트된다 (위 "랜딩 게이트" 참고). `landing.html` 을 직접 열었는데 `enabled !== true`(또는 섹션 자체가 없음)면 `404.html` 로 리다이렉트한다 — `nearbyAttractions`/`layoutMap` 과 동일 규약.
+
+| data-\* 속성          | 요소                | JSON 경로                                             |
+| ---------------------- | ------------------- | ------------------------------------------------------ |
+| `data-landing-cards`   | `ul.landing_cards`  | `pages.landing.sections[0].about[]` (li 동적 생성, 1~3장) |
+
+### 카드 내부 구조
+
+```
+about[i] 기준으로 동적 생성 (li.landing_card > a):
+- .landing_card_bg      : about[i].images[isSelected] 첫 장 (배경)
+- .landing_card_overlay : 정적 오버레이
+- .landing_card_content
+    - 로고 있으면 <img class="landing_card_logo_img"> : hero.images[] 중 blockId === about[i].blockId
+      (카드마다 다른 로고를 hero.images 공유 배열에서 blockId 로 스코프)
+    - 로고 없으면 <p class="landing_card_name"> : about[i].propertyName
+    - about[i].title 이 입력돼 있을 때만 <p class="landing_card_title"> 추가 (자동 채움 없음)
+```
+
+`ul` 의 `data-count` 속성 = `min(카드 수, 3)` — 그리드 컬럼 수 결정.
+
+### `standard-template-data.json` — `pages.landing` 스키마
+
+```json
+"landing": {
+  "sections": [
+    {
+      "enabled": true,
+      "hero": { "images": [] },
+      "about": [
+        {
+          "blockId": "sample-card-1",
+          "propertyId": "sample-property-1",
+          "propertyName": "현재 숙소",
+          "title": "",
+          "images": [],
+          "order": 1
+        },
+        {
+          "blockId": "sample-card-2",
+          "propertyId": "sample-property-2",
+          "propertyName": "연결 숙소 2",
+          "domain": "http://localhost:8000/t-template-A",
+          "title": "",
+          "images": [],
+          "order": 2
+        }
+      ]
+    }
+  ]
+}
+```
+
+| 필드                | 용도                                                                 |
+| ------------------- | ---------------------------------------------------------------------- |
+| `about[i].blockId`  | `hero.images[]` 공유 배열에서 이 카드의 로고를 찾는 스코프 키           |
+| `about[i].propertyId` | 이 사이트의 `property.id` 와 비교 — 같으면 "자기 자신" 카드            |
+| `about[i].propertyName` | 로고가 없을 때 대신 보여줄 텍스트                                    |
+| `about[i].domain`   | 연결 숙소(자기 자신이 아닌 카드)의 실제 도메인 — **어드민이 숙소 선택 시 저장해 내려준다고 전제**. 아직 백오피스 저장 로직 미구현 |
+| `about[i].title`    | 카드에 추가로 보여줄 소개 문구 (선택 입력)                              |
+| `about[i].images`   | 카드 배경 이미지 (카드별 전용 필드, `hero.images` 와 별개)              |
+| `about[i].order`    | 카드 정렬 순서                                                         |
+
+### 카드 클릭 링크 — `getCardLink()`
+
+모든 카드는 **새 탭**으로 열리며(랜딩 자체는 원래 탭에 남김), 도착한 index 는 referrer 로 랜딩을 건너뛴다 (위 "랜딩 게이트" 참고).
+
+| 조건                                             | 이동 링크                                  |
+| -------------------------------------------------- | -------------------------------------------- |
+| `about[i].propertyId === property.id` (자기 자신) | `./index.html` (새 탭)                       |
+| 그 외 (연결 숙소) + `domain` 있음                  | `{정규화된 domain}/` (새 탭)                 |
+| 연결 숙소인데 `domain` 없음                        | `href="#"` (비활성 링크)                     |
+
+`domain` 정규화: `http(s)://` 없으면 `https://` 를 붙이고, 끝의 `/` 는 정리한다.
+
+---
+
 ## index.html
 
 | data-\* 속성                     | 요소                                                     | JSON 경로                                                                   |
@@ -326,7 +447,7 @@ property.images[] 중 category === 'property_exterior'  (평탄형)
 | `data-index-hero-description`    | `.main_txt_top p`                                        | `hero.description` → 폴백 `property.subtitle` (`firstText`)                 |
 | `data-property-name`             | `.main_title p span`, `.land_btm p span`                 | `property.name`                                                             |
 | `data-index-room-slides`         | `.main_room .swiper-container_special .swiper-wrapper`   | `customFields.roomtypes[]` × `rooms[]` id 매칭                              |
-| `data-index-special-list`        | `.main_spe .spe_list`                                    | `property.facilities[]`                                                     |
+| `data-index-special-list`        | `.main_spe .spe_list`                                    | `property.facilities[0..2]` (최대 3개)                                       |
 | `data-index-landscape-slides`    | `.main_landscape .swiper-container_room .swiper-wrapper` | `getLandscapeImages()`                                                      |
 | `data-index-closing-images`      | `.main_pic .pic_list` (`img01`/`img02`/`img03`)          | `pages.index.sections[0].closing.images[isSelected][0..2]`                  |
 | `data-index-closing-title`       | `.main_pic .txt_box strong`                              | `closing.title` → 폴백 `"Welcome to {getPropertyNameEn()}"`                 |
@@ -349,15 +470,15 @@ roomtypes[i] 기준으로 동적 생성:
 ### `data-index-special-list` 항목 내부 구조
 
 ```
-property.facilities[i] 기준으로 동적 생성:
+property.facilities[0..2] 기준으로 동적 생성 (최대 3개, 3개 이하면 있는 만큼):
 - .parallax-window[data-parallax="scroll"][data-image-src={images[0].url}]
 - <a class="spe_in_txt" href="./facility.html?id={id}">
 - <strong> : firstText(nameEn, name)
-- <p>      : firstText(description)   ← 시설 설명
+- <p>      : nameEn 이 있을 때만 name, 없으면 숨김   ← 시설 설명은 쓰지 않는다
 ```
 
 > **`<p>` 는 원래 한글 시설명 자리였다.** 원본은 `strong`=영문명 / `p`=한글명 구조지만, `facilities[]` 에 `nameEn` 이 없는 응답이 일반적이라 `strong` 이 한글명으로 폴백되면서 `p` 가 같은 이름을 반복하게 된다.
-> 그래서 `p` 는 **시설 설명(`description`)** 을 쓴다. `nameEn` 이 실제로 있어 `strong` 이 영문일 때만 원본대로 `p` 에 한글명을 넣고, 둘 다 없으면 `p` 를 숨겨 중복 노출을 막는다.
+> 그래서 `nameEn` 이 실제로 있어 `strong` 이 영문일 때만 원본대로 `p` 에 한글명을 넣고, 아니면 `p` 를 숨겨 중복 노출을 막는다. **시설 설명(`description`)은 이 영역에 쓰지 않는다.**
 
 > ⚠️ **`.parallax-window` 에 `background-image` 를 직접 주지 말 것.** `.parallax-mirror` 가 `z-index:-100` 이라 요소 자신의 배경에 가려져 패럴랙스가 죽고 `cover` 크롭만 남는다.
 > CSS 폴백은 `common.js` 의 `initParallax()` 가 **`$.fn.parallax` 가 없을 때만** 건다.
@@ -478,6 +599,17 @@ p      : closing.description → BaseDataMapper.CLOSING_FALLBACK_DESC_HTML
 ### enabled 체크
 
 `layoutMap.sections[0].enabled === false` **또는 섹션 자체가 없으면** → `404.html` 리다이렉트. 헤더 `미리보기` li 도 같은 기준으로 숨긴다.
+
+**대메뉴 `ROOMS`(`[data-rooms-link]`)는 이 값에 따라 이동처가 갈린다.** — `getRoomsEntryLink()`
+
+| `layoutMap` | ROOMS 클릭 시                                     |
+| ----------- | ------------------------------------------------- |
+| 켜짐        | `layout-map.html` (객실 배치도)                   |
+| 꺼짐        | 첫 번째 객실 상세 (헤더 객실 메뉴 첫 항목과 같음) |
+
+꺼진 상태에서 그대로 두면 `layout-map.html` 이 404 로 튕긴다. 판정은 이 페이지의 404 기준과 같은
+`isLayoutMapEnabled()`(섹션 없음 / `enabled:false` → 꺼짐)를 쓴다. `room.html` 의 객실 탭 첫 칸
+`미리보기` 도 꺼져 있으면 숨긴다. 객실이 하나도 없으면 원래 href 를 둔다.
 
 ### 배치도 이미지는 `<img>` 로 넣는다
 
@@ -682,6 +814,7 @@ about[i] 기준:
 | `room.js`                                                    | `initRoomSwipers`      | 히어로(fade) / 하단 객실(3→2→1)                  |
 | `special.js`                                                 | `initFacilitySwipers`  | 히어로(fade)                                     |
 | `reservation.js` / `directions.js` / `nearby-attractions.js` | —                      | 없음 (자리만 확보)                               |
+| `landing.js`                                                  | —                       | 없음 (자리만 확보) — 헤더/푸터 없는 게이트 페이지라 `common.js` 에 얹힐 게 없음 |
 
 패럴랙스가 있는 페이지(`index` / `room`)는 `window.initParallax()` 도 함께 호출한다. `main.html` 은 패럴랙스를 쓰지 않는다.
 
